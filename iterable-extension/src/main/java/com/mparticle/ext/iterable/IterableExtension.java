@@ -416,6 +416,7 @@ public class IterableExtension extends MessageProcessor {
                                 RuntimeEnvironment.Type.MOBILEWEB,
                                 RuntimeEnvironment.Type.UNKNOWN)
                 );
+        eventProcessingRegistration.setPushMessagingProviderId("itbl");
 
         List<Setting> eventSettings = new ArrayList<>();
         List<Setting> audienceSettings = new ArrayList<>();
