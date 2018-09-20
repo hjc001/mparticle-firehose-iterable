@@ -43,7 +43,6 @@ public class IterableExtension extends MessageProcessor {
 
     private void processPushOpens(EventProcessingRequest processingRequest) throws IOException {
         if (processingRequest.getEvents() != null) {
-            Event.Context context = new Event.Context(processingRequest);
             List<PushMessageOpenEvent> pushOpenEvents = processingRequest.getEvents().stream()
                     .filter(e -> e.getType() == Event.Type.PUSH_MESSAGE_OPEN)
                     .map(e -> (PushMessageOpenEvent) e)
@@ -51,8 +50,8 @@ public class IterableExtension extends MessageProcessor {
 
             for (PushMessageOpenEvent event : pushOpenEvents) {
                 TrackPushOpenRequest request = new TrackPushOpenRequest();
-                List<UserIdentity> identities = context.getUserIdentities();
-                if (event.getPayload() != null && context.getUserIdentities() != null) {
+                List<UserIdentity> identities = processingRequest.getUserIdentities();
+                if (event.getPayload() != null && processingRequest.getUserIdentities() != null) {
                     for (UserIdentity identity : identities) {
                         if (identity.getType().equals(UserIdentity.Type.EMAIL)) {
                             request.email = identity.getValue();
@@ -67,7 +66,7 @@ public class IterableExtension extends MessageProcessor {
                     Map<String, Object> payload = mapper.readValue(event.getPayload(), Map.class);
                     if (payload.containsKey("itbl")) {
                         //Android and iOS have differently encoded payload formats. See the tests for examples.
-                        if (context.getRuntimeEnvironment() instanceof AndroidRuntimeEnvironment) {
+                        if (processingRequest.getRuntimeEnvironment() instanceof AndroidRuntimeEnvironment) {
                             Map<String, Object> iterableMap = mapper.readValue((String) payload.get("itbl"), Map.class);
                             request.campaignId = Integer.parseInt(mapper.writeValueAsString(iterableMap.get("campaignId")));
                             request.templateId = Integer.parseInt(mapper.writeValueAsString(iterableMap.get("templateId")));
@@ -91,7 +90,7 @@ public class IterableExtension extends MessageProcessor {
     }
 
     private static String getApiKey(Event event) {
-        Account account = event.getContext().getAccount();
+        Account account = event.getRequest().getAccount();
         return account.getStringSetting(SETTING_API_KEY, true, null);
     }
 
@@ -132,18 +131,18 @@ public class IterableExtension extends MessageProcessor {
             return;
         }
         request.device = new Device();
-        if (event.getContext().getRuntimeEnvironment().getType().equals(RuntimeEnvironment.Type.IOS)) {
-            Boolean sandboxed = ((IosRuntimeEnvironment) event.getContext().getRuntimeEnvironment()).getIsSandboxed();
+        if (event.getRequest().getRuntimeEnvironment().getType().equals(RuntimeEnvironment.Type.IOS)) {
+            Boolean sandboxed = ((IosRuntimeEnvironment) event.getRequest().getRuntimeEnvironment()).getIsSandboxed();
             if (sandboxed != null && sandboxed) {
                 request.device.platform = Device.PLATFORM_APNS_SANDBOX;
-                request.device.applicationName = event.getContext().getAccount().getAccountSettings().get(SETTING_APNS_SANDBOX_KEY);
+                request.device.applicationName = event.getRequest().getAccount().getAccountSettings().get(SETTING_APNS_SANDBOX_KEY);
             } else {
                 request.device.platform = Device.PLATFORM_APNS;
-                request.device.applicationName = event.getContext().getAccount().getAccountSettings().get(SETTING_APNS_KEY);
+                request.device.applicationName = event.getRequest().getAccount().getAccountSettings().get(SETTING_APNS_KEY);
             }
-        } else if (event.getContext().getRuntimeEnvironment().getType().equals(RuntimeEnvironment.Type.ANDROID)) {
+        } else if (event.getRequest().getRuntimeEnvironment().getType().equals(RuntimeEnvironment.Type.ANDROID)) {
             request.device.platform = Device.PLATFORM_GCM;
-            request.device.applicationName = event.getContext().getAccount().getAccountSettings().get(SETTING_GCM_NAME_KEY);
+            request.device.applicationName = event.getRequest().getAccount().getAccountSettings().get(SETTING_GCM_NAME_KEY);
         } else {
             throw new IOException("Cannot process push subscription event for unknown RuntimeEnvironment type.");
         }
@@ -151,7 +150,7 @@ public class IterableExtension extends MessageProcessor {
         request.device.token = event.getToken();
 
         try {
-            UserIdentity email = event.getContext().getUserIdentities().stream()
+            UserIdentity email = event.getRequest().getUserIdentities().stream()
                     .filter(t -> t.getType().equals(UserIdentity.Type.EMAIL))
                     .findFirst()
                     .get();
@@ -169,8 +168,6 @@ public class IterableExtension extends MessageProcessor {
     }
 
     void updateUser(EventProcessingRequest request) throws IOException {
-        Event.Context context = new Event.Context(request);
-
         if (request.getEvents() != null) {
 
             List<UserIdentityChangeEvent> emailChangeEvents = request.getEvents().stream()
@@ -224,7 +221,7 @@ public class IterableExtension extends MessageProcessor {
             }
         }
 
-        List<UserIdentity> identities = context.getUserIdentities();
+        List<UserIdentity> identities = request.getUserIdentities();
         UserUpdateRequest userUpdateRequest = new UserUpdateRequest();
         if (identities != null) {
             for (UserIdentity identity : identities) {
@@ -235,7 +232,7 @@ public class IterableExtension extends MessageProcessor {
                 }
             }
             if (!isEmpty(userUpdateRequest.email) || !isEmpty(userUpdateRequest.userId)) {
-                userUpdateRequest.dataFields = context.getUserAttributes();
+                userUpdateRequest.dataFields = request.getUserAttributes();
                 Response<IterableApiResponse> response = iterableService.userUpdate(getApiKey(request), userUpdateRequest).execute();
                 if (response.isSuccessful()) {
                     IterableApiResponse apiResponse = response.body();
@@ -256,7 +253,7 @@ public class IterableExtension extends MessageProcessor {
         if (event.getAction().equals(ProductActionEvent.Action.PURCHASE)) {
             TrackPurchaseRequest purchaseRequest = new TrackPurchaseRequest();
             purchaseRequest.createdAt = (int) (event.getTimestamp() / 1000.0);
-            List<UserIdentity> identities = event.getContext().getUserIdentities();
+            List<UserIdentity> identities = event.getRequest().getUserIdentities();
             ApiUser apiUser = new ApiUser();
             if (identities != null) {
                 for (UserIdentity identity : identities) {
@@ -267,7 +264,7 @@ public class IterableExtension extends MessageProcessor {
                     }
                 }
             }
-            apiUser.dataFields = event.getContext().getUserAttributes();
+            apiUser.dataFields = event.getRequest().getUserAttributes();
             purchaseRequest.user = apiUser;
             purchaseRequest.total = event.getTotalAmount();
             if (event.getProducts() != null) {
@@ -419,6 +416,7 @@ public class IterableExtension extends MessageProcessor {
                                 RuntimeEnvironment.Type.MOBILEWEB,
                                 RuntimeEnvironment.Type.UNKNOWN)
                 );
+        eventProcessingRegistration.setPushMessagingProviderId("itbl");
 
         List<Setting> eventSettings = new ArrayList<>();
         List<Setting> audienceSettings = new ArrayList<>();
@@ -552,7 +550,7 @@ public class IterableExtension extends MessageProcessor {
             }
         }
 
-        List<UserIdentity> identities = event.getContext().getUserIdentities();
+        List<UserIdentity> identities = event.getRequest().getUserIdentities();
         if (identities != null) {
             for (UserIdentity identity : identities) {
                 if (identity.getType().equals(UserIdentity.Type.EMAIL)) {
@@ -572,7 +570,7 @@ public class IterableExtension extends MessageProcessor {
         TrackRequest request = new TrackRequest(event.getName());
         request.createdAt = (int) (event.getTimestamp() / 1000.0);
         request.dataFields = attemptTypeConversion(event.getAttributes());
-        List<UserIdentity> identities = event.getContext().getUserIdentities();
+        List<UserIdentity> identities = event.getRequest().getUserIdentities();
         if (identities != null) {
             for (UserIdentity identity : identities) {
                 if (identity.getType().equals(UserIdentity.Type.EMAIL)) {
@@ -632,8 +630,8 @@ public class IterableExtension extends MessageProcessor {
     @Override
     public void processPushMessageReceiptEvent(PushMessageReceiptEvent event) throws IOException {
         TrackPushOpenRequest request = new TrackPushOpenRequest();
-        List<UserIdentity> identities = event.getContext().getUserIdentities();
-        if (event.getPayload() != null && event.getContext().getUserIdentities() != null) {
+        List<UserIdentity> identities = event.getRequest().getUserIdentities();
+        if (event.getPayload() != null && event.getRequest().getUserIdentities() != null) {
             for (UserIdentity identity : identities) {
                 if (identity.getType().equals(UserIdentity.Type.EMAIL)) {
                     request.email = identity.getValue();
@@ -648,7 +646,7 @@ public class IterableExtension extends MessageProcessor {
             Map<String, Object> payload = mapper.readValue(event.getPayload(), Map.class);
             if (payload.containsKey("itbl")) {
                 //Android and iOS have differently encoded payload formats. See the tests for examples.
-                if (event.getContext().getRuntimeEnvironment() instanceof AndroidRuntimeEnvironment) {
+                if (event.getRequest().getRuntimeEnvironment() instanceof AndroidRuntimeEnvironment) {
                     Map<String, Object> iterableMap = mapper.readValue((String) payload.get("itbl"), Map.class);
                     request.campaignId = Integer.parseInt(mapper.writeValueAsString(iterableMap.get("campaignId")));
                     request.templateId = Integer.parseInt(mapper.writeValueAsString(iterableMap.get("templateId")));

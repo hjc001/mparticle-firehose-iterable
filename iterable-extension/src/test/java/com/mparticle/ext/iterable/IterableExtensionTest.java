@@ -188,8 +188,7 @@ public class IterableExtensionTest {
         userIdentities.add(new UserIdentity(UserIdentity.Type.EMAIL, Identity.Encoding.RAW, "mptest@mparticle.com"));
         userIdentities.add(new UserIdentity(UserIdentity.Type.CUSTOMER, Identity.Encoding.RAW, "123456"));
         request.setUserIdentities(userIdentities);
-        Event.Context context = new Event.Context(request);
-        event.setContext(context);
+        event.setRequest(request);
         Map<String, String> attributes = new HashMap<>();
         attributes.put("some attribute key", "some attribute value");
         event.setAttributes(attributes);
@@ -234,7 +233,7 @@ public class IterableExtensionTest {
         eventProcessingRequest.setAccount(account);
         eventProcessingRequest.setUserIdentities(new LinkedList<>());
         PushMessageReceiptEvent event = new PushMessageReceiptEvent();
-        event.setContext(new Event.Context(eventProcessingRequest));
+        event.setRequest(eventProcessingRequest);
         IOException exception = null;
         event.setPayload("anything to get past null check");
         try {
@@ -249,7 +248,7 @@ public class IterableExtensionTest {
         userIdentities.add(new UserIdentity(UserIdentity.Type.CUSTOMER, Identity.Encoding.RAW, "123456"));
         eventProcessingRequest.setUserIdentities(userIdentities);
         eventProcessingRequest.setRuntimeEnvironment(new AndroidRuntimeEnvironment());
-        event.setContext(new Event.Context(eventProcessingRequest));
+        event.setRequest(eventProcessingRequest);
         event.setPayload("{\"google.sent_time\":1507657706679,\"body\":\"example\",\"from\":\"674988899928\",\"itbl\":\"{\\\"campaignId\\\":12345,\\\"isGhostPush\\\":false,\\\"messageId\\\":\\\"1dce4e505b11111ca1111d6fdd774fbd\\\",\\\"templateId\\\":54321}\",\"google.message_id\":\"0:1507657706689231%62399b94f9fd7ecd\"}");
 
         long timeStamp = System.currentTimeMillis();
@@ -297,7 +296,7 @@ public class IterableExtensionTest {
         settings.put(SETTING_API_KEY, "foo");
         account.setAccountSettings(settings);
         eventProcessingRequest.setAccount(account);
-        event.setContext(new Event.Context(eventProcessingRequest));
+        event.setRequest(eventProcessingRequest);
         IOException exception = null;
         event.setPayload("anything to get past null check");
         try {
@@ -312,7 +311,7 @@ public class IterableExtensionTest {
         userIdentities.add(new UserIdentity(UserIdentity.Type.CUSTOMER, Identity.Encoding.RAW, "123456"));
         eventProcessingRequest.setUserIdentities(userIdentities);
         eventProcessingRequest.setRuntimeEnvironment(new IosRuntimeEnvironment());
-        event.setContext(new Event.Context(eventProcessingRequest));
+        event.setRequest(eventProcessingRequest);
 
         event.setPayload("{\"aps\":{\"content-available\":1 }, \"data\":{\"route\":\"example\", \"tag\":\"example\", \"body\":\"example\"}, \"route\":\"example\", \"type\":\"marketing\", \"itbl\":{\"campaignId\":12345, \"messageId\":\"1dce4e505b11111ca1111d6fdd774fbd\", \"templateId\":54321, \"isGhostPush\":false } }");
 
@@ -507,8 +506,7 @@ public class IterableExtensionTest {
         userIdentities.add(new UserIdentity(UserIdentity.Type.EMAIL, Identity.Encoding.RAW, "mptest@mparticle.com"));
         userIdentities.add(new UserIdentity(UserIdentity.Type.CUSTOMER, Identity.Encoding.RAW, "123456"));
         request.setUserIdentities(userIdentities);
-        Event.Context context = new Event.Context(request);
-        event.setContext(context);
+        event.setRequest(request);
         event.setTotalAmount(new BigDecimal(101d));
         List<Product> products = new LinkedList<>();
         Product product1 = new Product();
@@ -667,8 +665,7 @@ public class IterableExtensionTest {
         List<UserIdentity> userIdentities = new LinkedList<>();
         userIdentities.add(new UserIdentity(UserIdentity.Type.EMAIL, Identity.Encoding.RAW, "mptest@mparticle.com"));
         request.setUserIdentities(userIdentities);
-        Event.Context context = new Event.Context(request);
-        event.setContext(context);
+        event.setRequest(request);
         Map<String, String> attributes = new HashMap<>();
         // Added some random spaces to test it doesn't mess with parsing
         attributes.put(IterableExtension.EMAIL_LIST_ID_LIST_KEY, "1, 2,  3, 4 , 5 , 6 , 7  ,8");
