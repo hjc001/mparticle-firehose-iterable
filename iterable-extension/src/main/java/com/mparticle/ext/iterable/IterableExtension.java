@@ -453,7 +453,8 @@ public class IterableExtension extends MessageProcessor {
                 Event.Type.PUSH_MESSAGE_RECEIPT,
                 Event.Type.PUSH_MESSAGE_OPEN,
                 Event.Type.USER_IDENTITY_CHANGE,
-                Event.Type.PRODUCT_ACTION);
+                Event.Type.PRODUCT_ACTION,
+                Event.Type.SCREEN_VIEW);
 
         eventProcessingRegistration.setSupportedEventTypes(supportedEventTypes);
         response.setEventProcessingRegistration(eventProcessingRegistration);
@@ -571,6 +572,35 @@ public class IterableExtension extends MessageProcessor {
         request.createdAt = (int) (event.getTimestamp() / 1000.0);
         request.dataFields = attemptTypeConversion(event.getAttributes());
         List<UserIdentity> identities = event.getRequest().getUserIdentities();
+        if (identities != null) {
+            for (UserIdentity identity : identities) {
+                if (identity.getType().equals(UserIdentity.Type.EMAIL)) {
+                    request.email = identity.getValue();
+                } else if (identity.getType().equals(UserIdentity.Type.CUSTOMER)) {
+                    request.userId = identity.getValue();
+                }
+            }
+        }
+
+        Response<IterableApiResponse> response = iterableService.track(getApiKey(event), request).execute();
+        if (response.isSuccessful() && !response.body().isSuccess()) {
+            throw new IOException(response.body().toString());
+        } else if (!response.isSuccessful()) {
+            throw new IOException("Error sending custom event to Iterable: HTTP " + response.code());
+        }
+    }
+
+    @Override
+    public void processScreenViewEvent(ScreenViewEvent event) throws IOException {
+        if (processSubscribeEvent(event)) {
+            return;
+        }
+
+        TrackRequest request = new TrackRequest("viewScreen");
+        request.createdAt = (int) (event.getTimestamp() / 1000.0);
+        request.dataFields = attemptTypeConversion(event.getAttributes());
+        request.dataFields.put("screenName", event.getScreenName());
+        List<UserIdentity> identities = event.getContext().getUserIdentities();
         if (identities != null) {
             for (UserIdentity identity : identities) {
                 if (identity.getType().equals(UserIdentity.Type.EMAIL)) {
