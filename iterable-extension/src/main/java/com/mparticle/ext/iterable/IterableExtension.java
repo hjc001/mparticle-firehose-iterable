@@ -596,7 +596,7 @@ public class IterableExtension extends MessageProcessor {
             return;
         }
 
-        TrackRequest request = new TrackRequest("viewScreen");
+        TrackRequest request = new TrackRequest("Screen View");
         request.createdAt = (int) (event.getTimestamp() / 1000.0);
         request.dataFields = attemptTypeConversion(event.getAttributes());
         request.dataFields.put("screenName", event.getScreenName());
